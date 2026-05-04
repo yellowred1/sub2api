@@ -279,14 +279,18 @@ func Install(cfg *SetupConfig) error {
 		return fmt.Errorf("system is already installed, re-installation is not allowed")
 	}
 
-	// Generate JWT secret if not provided
+	// Use JWT_SECRET env var if provided, otherwise auto-generate
 	if cfg.JWT.Secret == "" {
-		secret, err := generateSecret(32)
-		if err != nil {
-			return fmt.Errorf("failed to generate jwt secret: %w", err)
+		if envSecret := os.Getenv("JWT_SECRET"); envSecret != "" {
+			cfg.JWT.Secret = envSecret
+		} else {
+			secret, err := generateSecret(32)
+			if err != nil {
+				return fmt.Errorf("failed to generate jwt secret: %w", err)
+			}
+			cfg.JWT.Secret = secret
+			logger.LegacyPrintf("setup", "%s", "Warning: JWT secret auto-generated. Consider setting JWT_SECRET for a fixed secret in production.")
 		}
-		cfg.JWT.Secret = secret
-		logger.LegacyPrintf("setup", "%s", "Warning: JWT secret auto-generated. Consider setting a fixed secret for production.")
 	}
 
 	// Test connections
@@ -576,14 +580,16 @@ func AutoSetupFromEnv() error {
 		Timezone: tz,
 	}
 
-	// Generate JWT secret if not provided
-	if cfg.JWT.Secret == "" {
+	// Use JWT_SECRET env var if provided, otherwise auto-generate
+	if cfg.JWT.Secret != "" {
+		logger.LegacyPrintf("setup", "%s", "JWT secret loaded from JWT_SECRET environment variable.")
+	} else {
 		secret, err := generateSecret(32)
 		if err != nil {
 			return fmt.Errorf("failed to generate jwt secret: %w", err)
 		}
 		cfg.JWT.Secret = secret
-		logger.LegacyPrintf("setup", "%s", "Warning: JWT secret auto-generated. Consider setting a fixed secret for production.")
+		logger.LegacyPrintf("setup", "%s", "Warning: JWT secret auto-generated. Consider setting JWT_SECRET for a fixed secret in production.")
 	}
 
 	// Test database connection
